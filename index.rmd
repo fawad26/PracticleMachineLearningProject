@@ -9,22 +9,92 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Introduction
+In this project, we have data of different excercise activities performed by 6 individuals. The objective of the project is to predict response variable "classe", which represents quality of activety perforemed. There are five level of response variable, "A" to "E". We will handle this problem by applying a classification algoritem. There are 160 predictors availble in the data. Initailly we will do screening to clean and prepare the data for analysis and implementation of algoritem. For this analysis we need some packages.
+```{r ,results="hide"}
+library(psych)
+library(dplyr)
+library(caret)
+library(doParallel)
+registerDoParallel(2)
+```
+##Data Pre Processing
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+First we will read te data and  will have a look at te data for preprocessing.
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r}
 
-```{r cars}
-summary(cars)
+train1=read.csv(file="pml-training.csv",header = T)
+str(train1,list.len =40)
+#table(describe(train)[,2])
+```
+From above table we can see that many variables have many missing values. Another thing can be noticed that all the variable, which have missing values are, some kind of summary statistics namess in it, like ave,max and min etc. Some variables have numbers but in summary they are represented as a factor variables. Actually these are variables with some text and  we will skip these variables with help of dplyr package. Also first five variables are just identity valriabes
+
+
+```{r}
+library(dplyr)
+train2=select(train1,-starts_with(c("avg","std","var","amp","min","max","kurt","skew")))
+
+
+t1=train2[,c(6:60)] 
+
+
+
 ```
 
-## Including Plots
+Now we will partition, given training data into training and testing parts, to fit and evaluate the model.
 
-You can also embed plots, for example:
+```{r}
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+ inTrain <- createDataPartition(y=t1$classe,p=0.70, list=FALSE)
+ training <- t1[inTrain,]
+ testing <- t1[-inTrain,]
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+##Model Fitting and Evaluation
+The response variable is categorical so we will need classification algorithem,
+For this purpose the simplest algorithem is Decison trees. We will set tuneLengt to 30 for searching of best model. 
+```{r}
+set.seed(12321)
+#control <- trainControl(method="repeatedcv", number=10, repeats=3)
+#md2=train(classe~., method="rpart", tuneLength=5, trControl=control,data=training)
+#p2=predict(md2,testing)
+#confusionMatrix(testing$classe,p2)
+md2=train(classe~., method="rpart", tuneLength=30 ,data=training)
+md2$finalModel
+md2
+p2=predict(md2,testing)
+confusionMatrix(testing$classe,p2)
+
+ctrl <- trainControl(method = "repeatedcv", repeats = 5)
+md1=train(classe~., method="rf", trControl=ctrl,reapeats=5,data=training)
+p1=predict(md1,testing)
+confusionMatrix(testing$classe,p1)
+
+ #md1=train(classe~., method="rf", reapeats=5,data=training)
+ #p1=predict(md1,testing)
+#p3=confusionMatrix(testing$classe,p1)
+#p3
+```
+Fromabove analysis we can see that the accuaracy of the tree algorithem is very low as compared to Random Forest model. Random Forest Algorithem has good Senisitivity and specifity.. so we wil use this model to predict te test cases.
+
+##Predicting test data.
+The test data is also available from te same source. now we will read data and predict using this model.
+
+```{r}
+test1=read.csv(file="pml-testing.csv",header = T)
+
+test2=select(test1,-starts_with(c("avg","std","var","amp","min","max","kurt","skew")))
+
+
+test3=test2[,c(6:60)] 
+dim(test3)
+p3=predict(md1,test3)
+p3
+
+
+
+
+
+```
